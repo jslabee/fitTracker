@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fitness Training</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    #progressTableContainer table {
+      margin-top: 20px;
+    }
+    #progressTableContainer th, #progressTableContainer td {
+      text-align: center;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">Fitness Training</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link active" href="#" data-day="day1">PUSH DAY1 (Chest Focused)</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" data-day="day2">PULL DAY1 (Vertical Pulling)</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" data-day="day3">LEG DAY1 (Quad Focused)</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" data-day="day4">PUSH DAY2 (Shoulder Focused)</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" data-day="day5">PULL DAY2 (Horizontal Pulling)</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" data-day="day6">LEG DAY2 (Glute & Hamstring Focused)</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="add_workout.html">Dodaj vajo</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="dnevnik.html">Pregled dnevnika</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container mt-5">
+    <h1 class="text-center">Progresija za posamezno vajo</h1>
+    
+    <!-- Dropdown za izbiro vaje -->
+    <div class="form-group mt-4">
+      <label for="exerciseSelect"><strong>Izberi vajo:</strong></label>
+      <select id="exerciseSelect" class="form-select">
+        <!-- Seznam vaj bo dinamično napolnjen -->
+      </select>
+    </div>
+
+    <!-- Tabela z napredkom -->
+    <div id="progressTableContainer" class="mt-4">
+      <!-- Tabela z napredkom bo napolnjena tukaj -->
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js"></script>
+  
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
+    import { getFirestore, collection, getDocs, query, where, orderBy } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+
+    // Firebase konfiguracija
+    const firebaseConfig = {
+      apiKey: "AIzaSyCH21FfsUGNYJt4_cm8FXIxv_5WOI6mTg0",
+      authDomain: "fitnesdb-ab769.firebaseapp.com",
+      projectId: "fitnesdb-ab769",
+      storageBucket: "fitnesdb-ab769.firebasestorage.app",
+      messagingSenderId: "1086307739262",
+      appId: "1:1086307739262:web:1787a018cde3e709ad1a2f"
+    };
+    
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    
+    // Funkcija za nalaganje napredka
+    async function loadProgression() {
+      const logsRef = collection(db, "logs");
+      const querySnapshot = await getDocs(logsRef);
+
+      // Zgradimo seznam vaj in podatke za prikaz
+      const exercisesMap = {};
+
+      querySnapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        data.exercises.forEach(exercise => {
+          const name = exercise.exercise;
+          if (!exercisesMap[name]) {
+            exercisesMap[name] = [];
+          }
+          exercisesMap[name].push({
+            date: new Date(data.timestamp.toDate()).toLocaleString(),
+            weight: exercise.weight || "N/A",
+            reps: exercise.reps,
+            sets: exercise.sets,
+            comment: exercise.comment || ""
+          });
+        });
+      });
+
+      // Napolnimo dropdown z vajami
+      const exerciseSelect = document.getElementById("exerciseSelect");
+      exerciseSelect.innerHTML = Object.keys(exercisesMap)
+        .map(name => `<option value="${name}">${name}</option>`)
+        .join("");
+
+      // Posodobimo tabelo ob izbiri vaje
+      exerciseSelect.addEventListener("change", () => {
+        const selectedExercise = exerciseSelect.value;
+        const records = exercisesMap[selectedExercise];
+        displayProgressionTable(selectedExercise, records);
+      });
+
+      // Prikažemo tabelo za prvo vajo privzeto
+      const firstExercise = Object.keys(exercisesMap)[0];
+      if (firstExercise) {
+        displayProgressionTable(firstExercise, exercisesMap[firstExercise]);
+      }
+    }
+
+    // Funkcija za prikaz tabele z napredkom
+    function displayProgressionTable(exercise, records) {
+      const tableContainer = document.getElementById("progressTableContainer");
+
+      if (!records || records.length === 0) {
+        tableContainer.innerHTML = `<p>Ni zapisov za izbrano vajo (${exercise}).</p>`;
+        return;
+      }
+
+      const tableHTML = `
+        <h2 class="text-center">${exercise}</h2>
+        <table class="table table-bordered table-striped">
+          <thead class="table-dark">
+            <tr>
+              <th>Datum</th>
+              <th>Teža</th>
+              <th>Ponovitve</th>
+              <th>Seti</th>
+              <th>Komentar</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${records.map(record => `
+              <tr>
+                <td>${record.date}</td>
+                <td>${record.weight}</td>
+                <td>${record.reps}</td>
+                <td>${record.sets}</td>
+                <td>${record.comment}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+
+      tableContainer.innerHTML = tableHTML;
+    }
+
+    // Naložimo napredke ob nalaganju strani
+    loadProgression();
+  </script>
+</body>
+</html>

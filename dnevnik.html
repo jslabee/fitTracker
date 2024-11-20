@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PREGLED DNEVNIKA</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">Fitness Training</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link" href="index.html">Nazaj na vadbo</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" href="#">Pregled dnevnika</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="progresija.html">Progresija</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container mt-5">
+    <h1 class="text-center">Pregled dnevniških zapisov</h1>
+    <div class="table-responsive mt-4">
+      <table class="table table-striped table-bordered">
+        <thead>
+          <tr>
+            <th>Dan</th>
+            <th>Datum</th>
+            <th>Vaje</th>
+            <th>Akcije</th>
+          </tr>
+        </thead>
+        <tbody id="logsTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js"></script>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
+    import { getFirestore, collection, getDocs, deleteDoc, doc } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCH21FfsUGNYJt4_cm8FXIxv_5WOI6mTg0",
+      authDomain: "fitnesdb-ab769.firebaseapp.com",
+      projectId: "fitnesdb-ab769",
+      storageBucket: "fitnesdb-ab769.firebasestorage.app",
+      messagingSenderId: "1086307739262",
+      appId: "1:1086307739262:web:1787a018cde3e709ad1a2f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Nalaganje dnevniških zapisov
+    async function loadLogs() {
+      const logsRef = collection(db, "logs");
+      const querySnapshot = await getDocs(logsRef);
+
+      let logsHTML = '';
+
+      querySnapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        const date = new Date(data.timestamp.toDate()).toLocaleString();
+
+        // Notranja tabela za vaje
+        let exercisesHTML = `
+          <table class="table table-sm mb-0">
+            <thead>
+              <tr>
+                <th>Vaja</th>
+                <th>Seti x Ponovitve</th>
+                <th>Teža</th>
+                <th>Opravljeno</th>
+                <th>Komentar</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.exercises.map(ex => `
+                <tr>
+                  <td>${ex.exercise}</td>
+                  <td>${ex.sets} x ${ex.reps}</td>
+                  <td>${ex.weight || "N/A"}</td>
+                  <td>${ex.completed ? "Da" : "Ne"}</td>
+                  <td>${ex.comment || ""}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+
+        // Glavna tabela, ki vsebuje podatke dneva
+        logsHTML += `
+          <tr>
+            <td>${data.day}</td>
+            <td>${date}</td>
+            <td>${exercisesHTML}</td>
+            <td>
+              <button class="btn btn-danger btn-sm" onclick="deleteLog('${docSnap.id}')">Izbriši</button>
+              <button class="btn btn-secondary btn-sm" onclick="copyLog('${docSnap.id}')">Kopiraj</button>
+            </td>
+          </tr>
+        `;
+      });
+
+      document.getElementById("logsTableBody").innerHTML = logsHTML || '<tr><td colspan="4">Ni zapisov v dnevniku.</td></tr>';
+    }
+
+    // Brisanje zapisa
+    window.deleteLog = async function(id) {
+      try {
+        await deleteDoc(doc(db, "logs", id));
+        alert("Zapis je bil izbrisan.");
+        loadLogs(); // Osveži zapise
+      } catch (error) {
+        console.error("Napaka pri brisanju zapisa:", error);
+        alert("Napaka pri brisanju zapisa.");
+      }
+    };
+
+    // Kopiranje zapisa
+    window.copyLog = async function(id) {
+      const logsRef = collection(db, "logs");
+      const querySnapshot = await getDocs(logsRef);
+
+      let logToCopy = '';
+      querySnapshot.forEach(docSnap => {
+        if (docSnap.id === id) {
+          const data = docSnap.data();
+          logToCopy = `
+            Dan: ${data.day}\n
+            Datum: ${new Date(data.timestamp.toDate()).toLocaleString()}\n
+            Vaje:\n
+            ${data.exercises.map(ex => `- ${ex.exercise}: ${ex.sets}x${ex.reps}, Teža: ${ex.weight || "N/A"} (Opravljeno: ${ex.completed ? "Da" : "Ne"})\n${ex.comment ? ` - Komentar: ${ex.comment}` : ""}`).join('\n')}
+          `;
+        }
+      });
+
+      if (logToCopy) {
+        navigator.clipboard.writeText(logToCopy).then(() => {
+          alert("Zapis je bil kopiran v odložišče.");
+        }).catch(err => {
+          console.error("Napaka pri kopiranju zapisa:", err);
+        });
+      }
+    };
+
+    // Naloži zapise ob nalaganju strani
+    loadLogs();
+  </script>
+</body>
+</html>
