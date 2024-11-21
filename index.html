@@ -46,7 +46,7 @@
 
   <div class="container mt-5">
     <h1 id="dayTitle" class="text-center">PUSH DAY1 (Chest Focused)</h1>
-    <div id="exerciseList"></div>
+    <div id="exerciseList" class="accordion mt-4" id="exerciseAccordion"></div>
 
     <div class="text-center my-4">
       <button id="saveLog" class="btn btn-success">Shrani dnevniški zapis</button>
@@ -59,19 +59,19 @@
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
     import { getFirestore, collection, query, where, getDocs, deleteDoc, doc, addDoc, updateDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
-  
+
     const firebaseConfig = {
       apiKey: "AIzaSyCH21FfsUGNYJt4_cm8FXIxv_5WOI6mTg0",
       authDomain: "fitnesdb-ab769.firebaseapp.com",
       projectId: "fitnesdb-ab769",
-      storageBucket: "fitnesdb-ab769.firebasestorage.app",
+      storageBucket: "fitnesdb-ab769.firebaseapp.com",
       messagingSenderId: "1086307739262",
       appId: "1:1086307739262:web:1787a018cde3e709ad1a2f"
     };
-  
+
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-  
+
     // Nalaganje vaj iz Firestore za izbran dan
     async function loadExercises(day) {
       const dayMap = {
@@ -83,87 +83,99 @@
         day6: "LEG DAY2 (Glute & Hamstring Focused)"
       };
       document.getElementById("dayTitle").textContent = dayMap[day];
-  
+
       const exercisesRef = collection(db, "workouts");
       const q = query(exercisesRef, where("day", "==", day));
       const querySnapshot = await getDocs(q);
-  
+
       let exercisesHTML = '';
-  
+      let index = 0;
+
       querySnapshot.forEach((docSnap) => {
         const data = docSnap.data();
+        index++;
         exercisesHTML += `
-          <div class="card mb-3" id="exercise-${docSnap.id}" style="background-color: lightcoral;">
-            <div class="card-body">
-              <h5 class="card-title">${data.exercise}</h5>
-              <p><strong>Category:</strong> ${data.category}</p>
-              <p><strong>Sets:</strong> ${data.sets}, <strong>Reps:</strong> ${data.reps}</p>
-              <div>
-                <label for="weight-${docSnap.id}"><strong>Weight:</strong></label>
-                <input id="weight-${docSnap.id}" type="text" class="form-control" value="${data.weight || ''}">
-              </div>
-              
-              ${data.imageUrls && data.imageUrls.length > 0 ? `
-                <div class="mt-3">
-                  <strong>Slike:</strong>
-                  <div class="row">
-                    ${data.imageUrls.map(img => `
-                      <div class="col-md-4">
-                        <img src="${img}" class="img-fluid" alt="Exercise Image" />
+          <div class="accordion-item" style="background-color: lightcoral" id="exercise-${docSnap.id}">
+            <h2 class="accordion-header" style="background-color: lightcoral" id="heading${index}">
+              <button class="accordion-button collapsed" style="background-color: lightcoral" type="button" data-bs-toggle="collapse" data-bs-target="#collapse${index}" aria-expanded="false" aria-controls="collapse${index}">
+                ${data.exercise}
+              </button>
+            </h2>
+            <div id="collapse${index}" class="accordion-collapse collapse" aria-labelledby="heading${index}" data-bs-parent="#exerciseAccordion">
+              <div class="accordion-body">
+                <p><strong>Category:</strong> ${data.category}</p>
+                <p><strong>Sets:</strong> ${data.sets}, <strong>Reps:</strong> ${data.reps}</p>
+                <div>
+                  <label for="weight-${docSnap.id}"><strong>Weight:</strong></label>
+                  <input id="weight-${docSnap.id}" type="text" class="form-control" value="${data.weight || ''}">
+                </div>
+                
+                ${data.imageUrls && data.imageUrls.length > 0 ? `
+                  <div class="mt-3">
+                    <strong>Slike:</strong>
+                    <div class="row">
+                      ${data.imageUrls.map(img => `
+                        <div class="col-md-4">
+                          <img src="${img}" class="img-fluid" alt="Exercise Image" />
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+                ` : ''}
+
+                ${data.videoUrls && data.videoUrls.length > 0 ? `
+                  <div class="mt-3">
+                    <strong>Video:</strong>
+                    ${data.videoUrls.map(videoId => `
+                      <div class="ratio ratio-16x9 mt-3">
+                        <iframe src="https://www.youtube.com/embed/${videoId}" title="YouTube video" allowfullscreen></iframe>
                       </div>
                     `).join('')}
                   </div>
+                ` : ''}
+
+                <div class="form-check mt-2">
+                  <input id="completed-${docSnap.id}" class="form-check-input" type="checkbox">
+                  <label class="form-check-label" for="completed-${docSnap.id}">Opravljeno</label>
                 </div>
-              ` : ''}
-  
-              ${data.videoUrls && data.videoUrls.length > 0 ? `
-                <div class="mt-3">
-                  <strong>Video:</strong>
-            ${data.videoUrls.map(videoId => `
-  <div class="ratio ratio-16x9 mt-3">
-    <iframe src="https://www.youtube.com/embed/${videoId}" title="YouTube video" allowfullscreen></iframe>
-  </div>
-`).join('')}
+                <div class="mt-2">
+                  <label for="comment-${docSnap.id}"><strong>Komentar:</strong></label>
+                  <textarea id="comment-${docSnap.id}" class="form-control" rows="2"></textarea>
                 </div>
-              ` : ''}
-  
-              <div class="form-check mt-2">
-                <input id="completed-${docSnap.id}" class="form-check-input" type="checkbox">
-                <label class="form-check-label" for="completed-${docSnap.id}">Opravljeno</label>
+                <button class="btn btn-danger mt-3" onclick="deleteExercise('${docSnap.id}')">Izbriši</button>
               </div>
-              <div class="mt-2">
-                <label for="comment-${docSnap.id}"><strong>Komentar:</strong></label>
-                <textarea id="comment-${docSnap.id}" class="form-control" rows="2"></textarea>
-              </div>
-              <button class="btn btn-danger mt-3" onclick="deleteExercise('${docSnap.id}')">Izbriši</button>
             </div>
           </div>
         `;
       });
-  
-      document.getElementById("exerciseList").innerHTML = exercisesHTML || '<p>No exercises found for this day>';
-  
-      // Dodajanje dogodka za spreminjanje ozadja ob kliku na checkbox
-      document.querySelectorAll(".form-check-input").forEach(checkbox => {
-        checkbox.addEventListener("change", function() {
-          const card = this.closest(".card");
-          if (this.checked) {
-            card.style.backgroundColor = "lightgreen";  // Ozadje zeleno, ko je opravljeno
-          } else {
-            card.style.backgroundColor = "lightcoral";  // Ozadje rdeče, ko ni opravljeno
-          }
-        });
+
+      document.getElementById("exerciseList").innerHTML = exercisesHTML || '<p>No exercises found for this day</p>';
+// Privzeto obarvanje kartic na rdeče
+document.querySelectorAll(".accordion-item").forEach(card => {
+  card.style.backgroundColor = "lightcoral"; // Ozadje rdeče ob nalaganju
+});
+    // Dodajanje dogodka za obarvanje kartice in gumba ob kliku na checkbox
+    document.querySelectorAll(".form-check-input").forEach(checkbox => {
+      checkbox.addEventListener("change", function () {
+        const card = this.closest(".accordion-item");
+        const button = card.querySelector(".accordion-button");
+
+        if (this.checked) {
+          card.style.backgroundColor = "lightgreen"; // Ozadje zeleno za kartico
+          button.style.backgroundColor = "lightgreen"; // Ozadje zeleno za gumb
+        } else {
+          card.style.backgroundColor = "lightcoral"; // Ozadje rdeče, ko ni opravljeno
+          button.style.backgroundColor = "lightcoral"; // Ozadje rdeče za gumb
+        }
       });
-    }
-  
+    });
+  }
+
     // Brisanje vaje
     window.deleteExercise = async function(id) {
       try {
-        // Izbriši dokument iz Firestore
         await deleteDoc(doc(db, "workouts", id));
         alert("Vaja izbrisana.");
-  
-        // Po brisanju osveži seznam vaj za trenutno izbrani dan
         const activeDay = document.querySelector(".nav-link.active").getAttribute("data-day");
         loadExercises(activeDay);
       } catch (error) {
@@ -171,51 +183,7 @@
         alert("Napaka pri brisanju vaje.");
       }
     };
-  
-    async function saveLog() {
-      const day = document.querySelector(".nav-link.active").getAttribute("data-day");
-      const cards = document.querySelectorAll(".card");
-  
-      const logData = Array.from(cards).map(card => {
-        const id = card.querySelector("input[type='text']").id.split("-")[1];
-        return {
-          exercise: card.querySelector(".card-title").textContent,
-          weight: card.querySelector(`#weight-${id}`).value,
-          sets: card.querySelector("p:nth-of-type(2)").textContent.match(/Sets: (\d+)/)[1],
-          completed: card.querySelector(`#completed-${id}`).checked,
-          comment: card.querySelector(`#comment-${id}`).value,
-          date: new Date().toLocaleString(),
-          docId: id // Dodajte ID dokumenta
-        };
-      });
-  
-      try {
-        // 1. Shrani dnevniški zapis v zbirko "logs"
-        await addDoc(collection(db, "logs"), {
-          day,
-          timestamp: serverTimestamp(),
-          exercises: logData
-        });
-        alert("Dnevniški zapis shranjen.");
-  
-        // 2. Posodobi vrednosti 'weight' v zbirki "workouts"
-        for (const log of logData) {
-          const exerciseRef = doc(db, "workouts", log.docId);
-          try {
-            // Posodobi polje 'weight' za to vajo
-            await updateDoc(exerciseRef, {
-              weight: log.weight
-            });
-            console.log(`Teža za vajo ${log.exercise} je bila posodobljena.`);
-          } catch (error) {
-            console.error(`Napaka pri posodabljanju teže za vajo ${log.exercise}:`, error);
-          }
-        }
-      } catch (error) {
-        console.error("Napaka pri shranjevanju dnevniškega zapisa:", error);
-      }
-    }
-  
+
     // Povezava na gumbe za izbiro dneva
     document.querySelectorAll(".nav-link").forEach(link => {
       link.addEventListener("click", () => {
@@ -224,13 +192,9 @@
         loadExercises(link.getAttribute("data-day"));
       });
     });
-  
+
     // Privzeto nalaganje za prvi dan (PUSH DAY1)
     loadExercises("day1");
-  
-    document.getElementById("saveLog").addEventListener("click", saveLog);
   </script>
-  
-  
 </body>
 </html>
