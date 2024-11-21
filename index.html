@@ -139,7 +139,8 @@
         <div id="collapse${index}" class="accordion-collapse collapse" aria-labelledby="heading${index}" data-bs-parent="#exerciseAccordion">
           <div class="accordion-body">
             <p><strong>Category:</strong> ${data.category}</p>
-            <p><strong>Sets:</strong> ${data.sets}, <strong>Reps:</strong> ${data.reps}</p>
+          <p><strong>Sets:</strong> <input id="sets-${data.id}" type="number" class="form-control" value="${data.sets}" /> , <strong>Reps:</strong> <input id="reps-${data.id}" type="number" class="form-control" value="${data.reps}" /></p>
+
             <div>
               <label for="weight-${data.id}"><strong>Weight:</strong></label>
               <input id="weight-${data.id}" type="text" class="form-control" value="${data.weight || ''}">
@@ -241,14 +242,15 @@ document.addEventListener("click", async function(event) {
 
 
     async function saveLog() {
-  const day = document.querySelector(".nav-link.active").getAttribute("data-day");
+  const dayText  = document.getElementById("dayTitle").textContent;
   
   const logData = Array.from(document.querySelectorAll(".accordion-item")).map(card => {
     const id = card.id.split("-")[1]; // Pridobi ID iz id atributa accordion-item
     return {
       exercise: card.querySelector(".accordion-button .exercise-input").value.trim(), // Posodobitev za polje 'exercise'
       weight: card.querySelector(`#weight-${id}`).value,
-      sets: card.querySelector("p:nth-of-type(2)").textContent.match(/Sets: (\d+)/)[1],
+      sets: card.querySelector(`#sets-${id}`).value,
+      reps: card.querySelector(`#reps-${id}`).value,
       completed: card.querySelector(`#completed-${id}`).checked,
       comment: card.querySelector(`#comment-${id}`).value,
       date: new Date().toLocaleString(),
@@ -256,10 +258,11 @@ document.addEventListener("click", async function(event) {
     };
   });
 
+
   try {
     // 1. Shrani dnevniški zapis v zbirko "logs"
     await addDoc(collection(db, "logs"), {
-      day,
+      day: dayText ,
       timestamp: serverTimestamp(),
       exercises: logData
     });
