@@ -43,6 +43,24 @@
       </div>
     </div>
   </nav>
+<!-- Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteModalLabel">Potrditev brisanja</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        Ste prepričani, da želite izbrisati to vajo?
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Prekliči</button>
+        <button type="button" id="confirmDeleteBtn" class="btn btn-danger">Izbriši</button>
+      </div>
+    </div>
+  </div>
+</div>
 
   <div class="container mt-5">
     <h1 id="dayTitle" class="text-center">PUSH DAY1 (Chest Focused)</h1>
@@ -72,6 +90,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
+    document.getElementById("saveLog").addEventListener("click", saveLog);
     // Nalaganje vaj iz Firestore za izbran dan
     async function loadExercises(day) {
       const dayMap = {
@@ -88,66 +107,82 @@
       const q = query(exercisesRef, where("day", "==", day));
       const querySnapshot = await getDocs(q);
 
-      let exercisesHTML = '';
-      let index = 0;
+   
+  let exercises = [];
+  querySnapshot.forEach((docSnap) => {
+    const data = docSnap.data();
+    exercises.push({
+      id: docSnap.id,
+      exercise: data.exercise,
+      category: data.category,
+      sets: data.sets,
+      reps: data.reps,
+      weight: data.weight,
+      imageUrls: data.imageUrls,
+      videoUrls: data.videoUrls
+    });
+  });
 
-      querySnapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        index++;
-        exercisesHTML += `
-          <div class="accordion-item" style="background-color: lightcoral" id="exercise-${docSnap.id}">
-            <h2 class="accordion-header" style="background-color: lightcoral" id="heading${index}">
-              <button class="accordion-button collapsed" style="background-color: lightcoral" type="button" data-bs-toggle="collapse" data-bs-target="#collapse${index}" aria-expanded="false" aria-controls="collapse${index}">
-                ${data.exercise}
-              </button>
-            </h2>
-            <div id="collapse${index}" class="accordion-collapse collapse" aria-labelledby="heading${index}" data-bs-parent="#exerciseAccordion">
-              <div class="accordion-body">
-                <p><strong>Category:</strong> ${data.category}</p>
-                <p><strong>Sets:</strong> ${data.sets}, <strong>Reps:</strong> ${data.reps}</p>
-                <div>
-                  <label for="weight-${docSnap.id}"><strong>Weight:</strong></label>
-                  <input id="weight-${docSnap.id}" type="text" class="form-control" value="${data.weight || ''}">
-                </div>
-                
-                ${data.imageUrls && data.imageUrls.length > 0 ? `
-                  <div class="mt-3">
-                    <strong>Slike:</strong>
-                    <div class="row">
-                      ${data.imageUrls.map(img => `
-                        <div class="col-md-4">
-                          <img src="${img}" class="img-fluid" alt="Exercise Image" />
-                        </div>
-                      `).join('')}
-                    </div>
-                  </div>
-                ` : ''}
+  // Sortiraj vaje po imenu vaje (exercise)
+  exercises.sort((a, b) => a.exercise.localeCompare(b.exercise));
 
-                ${data.videoUrls && data.videoUrls.length > 0 ? `
-                  <div class="mt-3">
-                    <strong>Video:</strong>
-                    ${data.videoUrls.map(videoId => `
-                      <div class="ratio ratio-16x9 mt-3">
-                        <iframe src="https://www.youtube.com/embed/${videoId}" title="YouTube video" allowfullscreen></iframe>
-                      </div>
-                    `).join('')}
-                  </div>
-                ` : ''}
-
-                <div class="form-check mt-2">
-                  <input id="completed-${docSnap.id}" class="form-check-input" type="checkbox">
-                  <label class="form-check-label" for="completed-${docSnap.id}">Opravljeno</label>
-                </div>
-                <div class="mt-2">
-                  <label for="comment-${docSnap.id}"><strong>Komentar:</strong></label>
-                  <textarea id="comment-${docSnap.id}" class="form-control" rows="2"></textarea>
-                </div>
-                <button class="btn btn-danger mt-3" onclick="deleteExercise('${docSnap.id}')">Izbriši</button>
-              </div>
+  // Pripravi HTML za vse vaje
+  let exercisesHTML = '';
+  exercises.forEach((data, index) => {
+    exercisesHTML += `
+      <div class="accordion-item" style="background-color: lightcoral" id="exercise-${data.id}">
+        <h2 class="accordion-header" style="background-color: lightcoral" id="heading${index}">
+        <button class="accordion-button collapsed" style="background-color: lightcoral" type="button" data-bs-toggle="collapse" data-bs-target="#collapse${index}" aria-expanded="false" aria-controls="collapse${index}">
+  <input class="exercise-input" type="text" value="${data.exercise}" />  <!-- Vnosno polje za urejanje imena vaje -->
+</button>
+        </h2>
+        <div id="collapse${index}" class="accordion-collapse collapse" aria-labelledby="heading${index}" data-bs-parent="#exerciseAccordion">
+          <div class="accordion-body">
+            <p><strong>Category:</strong> ${data.category}</p>
+            <p><strong>Sets:</strong> ${data.sets}, <strong>Reps:</strong> ${data.reps}</p>
+            <div>
+              <label for="weight-${data.id}"><strong>Weight:</strong></label>
+              <input id="weight-${data.id}" type="text" class="form-control" value="${data.weight || ''}">
             </div>
-          </div>
-        `;
-      });
+            
+            ${data.imageUrls && data.imageUrls.length > 0 ? `
+              <div class="mt-3">
+                <strong>Slike:</strong>
+                <div class="row">
+                  ${data.imageUrls.map(img => `
+                    <div class="col-md-4">
+                      <img src="${img}" class="img-fluid" alt="Exercise Image" />
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            ${data.videoUrls && data.videoUrls.length > 0 ? `
+              <div class="mt-3">
+                <strong>Video:</strong>
+                ${data.videoUrls.map(videoId => `
+                  <div class="ratio ratio-16x9 mt-3">
+                    <iframe src="https://www.youtube.com/embed/${videoId}" title="YouTube video" allowfullscreen></iframe>
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+
+            <div class="form-check mt-2">
+              <input id="completed-${data.id}" class="form-check-input" type="checkbox">
+              <label class="form-check-label" for="completed-${data.id}">Opravljeno</label>
+            </div>
+            <div class="mt-2">
+              <label for="comment-${data.id}"><strong>Komentar:</strong></label>
+              <textarea id="comment-${data.id}" class="form-control" rows="2"></textarea>
+            <!-- Gumb za brisanje -->
+        <button class="btn btn-danger mt-3" data-id="${data.id}" data-bs-toggle="modal" data-bs-target="#deleteModal">Izbriši</button>
+      </div>
+        </div>
+      </div>
+    `;
+  });
 
       document.getElementById("exerciseList").innerHTML = exercisesHTML || '<p>No exercises found for this day</p>';
 // Privzeto obarvanje kartic na rdeče
@@ -170,19 +205,85 @@ document.querySelectorAll(".accordion-item").forEach(card => {
       });
     });
   }
+// Povezava na modal in funkcionalnost brisanja
+document.addEventListener("click", function(event) {
+  if (event.target && event.target.matches("button[data-bs-toggle='modal'][data-bs-target='#deleteModal']")) {
+    const exerciseId = event.target.getAttribute("data-id");
 
-    // Brisanje vaje
-    window.deleteExercise = async function(id) {
-      try {
-        await deleteDoc(doc(db, "workouts", id));
-        alert("Vaja izbrisana.");
-        const activeDay = document.querySelector(".nav-link.active").getAttribute("data-day");
-        loadExercises(activeDay);
-      } catch (error) {
-        console.error("Napaka pri brisanju:", error);
-        alert("Napaka pri brisanju vaje.");
-      }
+    // Ko uporabnik klikne "Izbriši", bo modal pridobil ID vaje
+    document.getElementById('confirmDeleteBtn').setAttribute('data-id', exerciseId);
+  }
+});
+
+// Potrditev brisanja znotraj modala
+document.addEventListener("click", async function(event) {
+  // Preveri, ali je kliknjen gumb za potrditev brisanja
+  if (event.target && event.target.id === "confirmDeleteBtn") {
+    const exerciseId = event.target.getAttribute('data-id');
+
+    try {
+      // Izbriši vajo iz Firestore
+      await deleteDoc(doc(db, "workouts", exerciseId));
+      alert("Vaja izbrisana.");
+      const activeDay = document.querySelector(".nav-link.active").getAttribute("data-day");
+      loadExercises(activeDay);  // Ponovno naloži vaje za dan
+    } catch (error) {
+      console.error("Napaka pri brisanju:", error);
+      alert("Napaka pri brisanju vaje.");
+    }
+
+    // Zapri modal
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    deleteModal.hide();
+  }
+});
+
+
+
+    async function saveLog() {
+  const day = document.querySelector(".nav-link.active").getAttribute("data-day");
+  
+  const logData = Array.from(document.querySelectorAll(".accordion-item")).map(card => {
+    const id = card.id.split("-")[1]; // Pridobi ID iz id atributa accordion-item
+    return {
+      exercise: card.querySelector(".accordion-button .exercise-input").value.trim(), // Posodobitev za polje 'exercise'
+      weight: card.querySelector(`#weight-${id}`).value,
+      sets: card.querySelector("p:nth-of-type(2)").textContent.match(/Sets: (\d+)/)[1],
+      completed: card.querySelector(`#completed-${id}`).checked,
+      comment: card.querySelector(`#comment-${id}`).value,
+      date: new Date().toLocaleString(),
+      docId: id // Dodajte ID dokumenta
     };
+  });
+
+  try {
+    // 1. Shrani dnevniški zapis v zbirko "logs"
+    await addDoc(collection(db, "logs"), {
+      day,
+      timestamp: serverTimestamp(),
+      exercises: logData
+    });
+    alert("Dnevniški zapis shranjen.");
+
+    // 2. Posodobi vrednosti 'weight' in 'exercise' v zbirki "workouts"
+    for (const log of logData) {
+      const exerciseRef = doc(db, "workouts", log.docId);
+      try {
+        // Posodobi polja 'weight' in 'exercise' za to vajo
+        await updateDoc(exerciseRef, {
+          weight: log.weight,
+          exercise: log.exercise // Posodabljanje imena vaje
+        });
+        console.log(`Teža za vajo ${log.exercise} je bila posodobljena.`);
+      } catch (error) {
+        console.error(`Napaka pri posodabljanju teže in imena vaje ${log.exercise}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error("Napaka pri shranjevanju dnevniškega zapisa:", error);
+  }
+}
+
 
     // Povezava na gumbe za izbiro dneva
     document.querySelectorAll(".nav-link").forEach(link => {
