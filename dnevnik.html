@@ -52,6 +52,7 @@
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
     import { getFirestore, collection, getDocs, deleteDoc, doc } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+    import { query, orderBy } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
     const firebaseConfig = {
       apiKey: "AIzaSyCH21FfsUGNYJt4_cm8FXIxv_5WOI6mTg0",
@@ -68,7 +69,8 @@
     // Nalaganje dnevniških zapisov
     async function loadLogs() {
       const logsRef = collection(db, "logs");
-      const querySnapshot = await getDocs(logsRef);
+      const sortedLogsRef = query(logsRef, orderBy("timestamp", "desc"));
+      const querySnapshot = await getDocs(sortedLogsRef);
 
       let logsHTML = '';
 
